@@ -113,8 +113,9 @@ public class PedroAutonomous extends OpMode {
                 }
                 break;
 
-            case 9: // Fin de todo
+            case 9:
                 if (!follower.isBusy()) {
+                    BlackBox.currentPose = follower.getPose();
                     pathState = -1;
                 }
                 break;
