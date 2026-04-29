@@ -1,0 +1,34 @@
+package org.firstinspires.ftc.teamcode.Subsystems;
+
+import com.arcrobotics.ftclib.command.SubsystemBase;
+import com.qualcomm.robotcore.hardware.HardwareMap;
+import com.qualcomm.robotcore.hardware.Servo;
+
+import org.firstinspires.ftc.robotcore.external.Telemetry;
+
+public class gateSubsystem extends SubsystemBase {
+    HardwareMap hardwareMap;
+    Telemetry telemetry;
+    Servo Tope;
+
+    public gateSubsystem(Telemetry telemetry, HardwareMap hardwareMap) {
+        this.hardwareMap = hardwareMap;
+        this.telemetry = telemetry;
+        Tope = hardwareMap.get(Servo.class, "Tope");
+    }
+
+    public void feed(){
+        Tope.setPosition(0.30);
+    }
+
+    public void close(){
+        Tope.setPosition(0.75);
+    }
+
+    @Override
+    public void periodic(){
+
+
+    }
+
+}
