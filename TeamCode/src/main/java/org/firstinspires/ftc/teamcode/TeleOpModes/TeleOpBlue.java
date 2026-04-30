@@ -3,6 +3,7 @@ package org.firstinspires.ftc.teamcode.TeleOpModes;
 import com.arcrobotics.ftclib.command.CommandOpMode;
 import com.arcrobotics.ftclib.command.InstantCommand;
 import com.arcrobotics.ftclib.command.RunCommand;
+import com.arcrobotics.ftclib.command.button.Trigger;
 import com.arcrobotics.ftclib.gamepad.GamepadEx;
 import com.arcrobotics.ftclib.gamepad.GamepadKeys;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
@@ -34,7 +35,6 @@ public class TeleOpBlue extends CommandOpMode {
 
     @Override
     public void initialize() {
-        // 1. Hardware Init (Basado en tus clases del repo)
         vision = new visionSubsystem(hardwareMap, telemetry);
         shooter = new shooterSubsystem(telemetry, hardwareMap);
         gate = new gateSubsystem(telemetry, hardwareMap);
@@ -49,22 +49,20 @@ public class TeleOpBlue extends CommandOpMode {
 
         // CARGAMOS LA POSICIÓN DEL AUTÓNOMO (La Black Box)
         follower.setStartingPose(BlackBox.currentPose);
-        follower.startTeleop();
+        follower.startTeleOpDrive();
 
         // 3. Drive Command (Movimiento continuo)
         // Usamos RunCommand para que Pedro siempre esté escuchando los joysticks
         schedule(new RunCommand(() -> {
-            follower.setTeleOpMovementVectors(
+            follower.setTeleOpDrive(
                     -chassisDriver.getLeftY(),  // Adelante/Atrás
                     -chassisDriver.getLeftX(),  // Strafe
                     -chassisDriver.getRightX(), // Giro
-                    true                        // Field Centric (Activado)
+                    false                       //Robot Centric
             );
             follower.update(); // Mueve motores y lee Pinpoint
         }));
-
-        // 4. Lógica de Botones (Manteniendo tu estilo)
-
+        
         // Reset de Heading (por si se descalibra)
         chassisDriver.getGamepadButton(GamepadKeys.Button.LEFT_STICK_BUTTON)
                 .whenPressed(new InstantCommand(() -> {
@@ -72,18 +70,42 @@ public class TeleOpBlue extends CommandOpMode {
                 }));
 
         // Intake y Gate
+
         chassisDriver.getGamepadButton(GamepadKeys.Button.RIGHT_BUMPER)
                 .whileHeld(new InstantCommand(() -> intake.setPower(1)))
                 .whenPressed(gate::close)
                 .whenReleased(new InstantCommand(() -> intake.setPower(0)));
 
-        // Shooter (Usando las velocidades de tu clase shooterSubsystem)
-        subsystemDriver.getGamepadButton(GamepadKeys.Button.Y)
-                .whenPressed(new InstantCommand(() -> shooter.shoot(shooter.VEL_LEJOS)))
-                .whenPressed(new InstantCommand(shooter::setVelLejos));
+        chassisDriver.getGamepadButton(GamepadKeys.Button.LEFT_BUMPER)
+                .whileHeld(new InstantCommand(() -> intake.setPower(-0.65)))
+                .whenReleased(new InstantCommand(() -> intake.setPower(0)));
 
-        subsystemDriver.getGamepadButton(GamepadKeys.Button.X)
+        // Shooter (Usando las velocidades de tu clase shooterSubsystem)
+        chassisDriver.getGamepadButton(GamepadKeys.Button.Y)
+                .whenPressed(new InstantCommand(() -> { shooter.shoot(1150);
+                    shooter.setVelLejos(); }));
+
+        chassisDriver.getGamepadButton(GamepadKeys.Button.B)
+                .whenPressed(new InstantCommand(() -> { shooter.shoot(1000);
+                    shooter.setVelMedia(); }));
+
+        chassisDriver.getGamepadButton(GamepadKeys.Button.A)
+                .whenPressed(new InstantCommand(() -> { shooter.shoot(775);
+                    shooter.setVelCerca(); }));
+
+        chassisDriver.getGamepadButton(GamepadKeys.Button.X)
                 .whenPressed(new InstantCommand(() -> shooter.shoot(0)));
+
+        new Trigger(() -> chassisDriver.getTrigger(GamepadKeys.Trigger.RIGHT_TRIGGER) > 0.25)
+                .whileActiveContinuous(new RunCommand(() -> {
+                    if (shooter.rpmReady) {
+                        gate.feed();
+                        intake.setPower(1);
+                    } else {
+                        gate.close();
+                        intake.setPower(0);
+                    }
+                }));
 
         // 5. Telemetría de Pedro
         schedule(new RunCommand(() -> {

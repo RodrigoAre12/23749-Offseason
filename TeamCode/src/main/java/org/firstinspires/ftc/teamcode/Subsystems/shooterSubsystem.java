@@ -15,7 +15,7 @@ public class shooterSubsystem extends SubsystemBase{
     DcMotorEx shooterIzq;
     Telemetry telemetry;
     HardwareMap hardwareMap;
-    PIDFCoefficients shootPID;
+    PIDFCoefficients shootPID1, shootPID2;
 
     double VelDer;
     double VelIzq;
@@ -36,15 +36,17 @@ public class shooterSubsystem extends SubsystemBase{
         this.hardwareMap = hardwareMap;
         this.telemetry = telemetry;
 
-        shootPID = new PIDFCoefficients(22,0.00,0,21);
+        shootPID1 = new PIDFCoefficients(22,0.00,0.01,21);
+        shootPID2 = new PIDFCoefficients(22,0.00,0.01,21);
+
 
         shooterIzq = hardwareMap.get(DcMotorEx.class, "shooterIzq");
-        shooterIzq.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, shootPID);
+        shooterIzq.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, shootPID1);
         shooterIzq.setDirection(DcMotorSimple.Direction.REVERSE);
         shooterIzq.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
 
         shooterDer = hardwareMap.get(DcMotorEx.class, "shooterDer");
-        shooterDer.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, shootPID);
+        shooterDer.setPIDFCoefficients(DcMotor.RunMode.RUN_USING_ENCODER, shootPID2);
         shooterDer.setDirection(DcMotorSimple.Direction.FORWARD);
         shooterDer.setZeroPowerBehavior(DcMotorEx.ZeroPowerBehavior.FLOAT);
 

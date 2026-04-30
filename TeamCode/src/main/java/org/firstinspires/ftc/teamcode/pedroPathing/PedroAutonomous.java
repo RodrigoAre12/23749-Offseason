@@ -12,13 +12,16 @@ import com.pedropathing.geometry.Pose;
 import com.pedropathing.paths.PathChain;
 import org.firstinspires.ftc.teamcode.pedroPathing.Constants;
 
-@Autonomous(name = "Pedro Pathing con Waits", group = "Autonomous")
+@Autonomous(name = "Auto Lejos", group = "Autonomous")
 @Configurable
 public class PedroAutonomous extends OpMode {
     private TelemetryManager panelsTelemetry;
     public Follower follower;
     private int pathState;
     private Paths paths;
+
+    // Variable para saber de qué lado empezamos
+    public boolean esAzul = true;
 
     // Variables para el control de tiempo (Waits)
     private long waitTimer;
@@ -29,13 +32,39 @@ public class PedroAutonomous extends OpMode {
         panelsTelemetry = PanelsTelemetry.INSTANCE.getTelemetry();
         follower = Constants.createFollower(hardwareMap);
 
-        // Posición inicial (debe coincidir con el inicio del Path 1)
-        follower.setStartingPose(new Pose(60, 8, Math.toRadians(90)));
-
-        paths = new Paths(follower);
-
-        panelsTelemetry.debug("Status", "¡Robot Listo!");
+        panelsTelemetry.debug("Status", "Iniciando... ¡Presiona X (Azul) o B (Rojo)!");
         panelsTelemetry.update(telemetry);
+    }
+
+    @Override
+    public void init_loop() {
+        // Leemos el control 1 mientras esperamos a darle Play
+        if (gamepad1.x) {
+            esAzul = true;
+        } else if (gamepad1.b) {
+            esAzul = false;
+        }
+
+        // Le avisamos al driver en la pantalla para no regarla en el match
+        panelsTelemetry.debug("Azul = X Roja = B");
+        panelsTelemetry.debug("ALIANZA SELECCIONADA: ", esAzul ? "AZUL (Boton X)" : "ROJA (Boton B)");
+        panelsTelemetry.update(telemetry);
+    }
+
+    @Override
+    public void start() {
+        // Hasta que le damos Play, configuramos la pose inicial y armamos la ruta
+        // Usamos nuestro método "e" (espejo) para voltear la pose inicial si es necesario
+        Pose startPoseAzul = new Pose(60, 8, Math.toRadians(90));
+
+        // Magia para voltear el heading en la pose inicial
+        double startHeading = esAzul ? startPoseAzul.getHeading() : -startPoseAzul.getHeading();
+        double startY = esAzul ? startPoseAzul.getY() : 144.0 - startPoseAzul.getY();
+
+        follower.setStartingPose(new Pose(startPoseAzul.getX(), startY, startHeading));
+
+        // Le pasamos la bandera "esAzul" para que construya el lado correcto
+        paths = new Paths(follower, esAzul);
     }
 
     @Override
@@ -113,8 +142,9 @@ public class PedroAutonomous extends OpMode {
                 }
                 break;
 
-            case 9:
+            case 9: // Fin de todo
                 if (!follower.isBusy()) {
+                    // Guardamos en la Black Box para el TeleOp
                     BlackBox.currentPose = follower.getPose();
                     pathState = -1;
                 }
@@ -126,50 +156,60 @@ public class PedroAutonomous extends OpMode {
     public static class Paths {
         public PathChain chain1, chain2, chain3, chain4, chain5;
 
-        public Paths(Follower follower) {
-            // BLOQUE 1: Solo Path 1
+        private Pose e(Pose p, boolean azul) {
+            if (azul) return p;
+            return new Pose(p.getX(), 144.0 - p.getY());
+        }
+
+        private double eAng(double ang, boolean azul) {
+            if (azul) return ang;
+            return -ang;
+        }
+
+        public Paths(Follower follower, boolean esAzul) {
+            // BLOQUE 1
             chain1 = follower.pathBuilder()
-                    .addPath(new BezierLine(new Pose(60.0, 8.0), new Pose(60.0, 12.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(90), Math.toRadians(119))
+                    .addPath(new BezierLine(e(new Pose(60.0, 8.0), esAzul), e(new Pose(60.0, 12.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(90), esAzul), eAng(Math.toRadians(119), esAzul))
                     .build();
 
-            // BLOQUE 2: Del 2 al 4 (Fluyen sin pausa)
+            // BLOQUE 2
             chain2 = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(60.0, 12.0), new Pose(59.4, 26.9), new Pose(50.9, 34.6), new Pose(42.0, 36.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(119), Math.toRadians(180))
-                    .addPath(new BezierLine(new Pose(42.0, 36.0), new Pose(12.0, 36.0)))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
-                    .addPath(new BezierCurve(new Pose(12.0, 36.0), new Pose(37.3, 30.8), new Pose(54.7, 25.2), new Pose(60.0, 12.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(180), Math.toRadians(119))
+                    .addPath(new BezierCurve(e(new Pose(60.0, 12.0), esAzul), e(new Pose(59.4, 26.9), esAzul), e(new Pose(50.9, 34.6), esAzul), e(new Pose(42.0, 36.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(119), esAzul), eAng(Math.toRadians(180), esAzul))
+                    .addPath(new BezierLine(e(new Pose(42.0, 36.0), esAzul), e(new Pose(12.0, 36.0), esAzul)))
+                    .setConstantHeadingInterpolation(eAng(Math.toRadians(180), esAzul))
+                    .addPath(new BezierCurve(e(new Pose(12.0, 36.0), esAzul), e(new Pose(37.3, 30.8), esAzul), e(new Pose(54.7, 25.2), esAzul), e(new Pose(60.0, 12.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(180), esAzul), eAng(Math.toRadians(119), esAzul))
                     .build();
 
-            // BLOQUE 3: Del 5 al 8 (Fluyen sin pausa)
+            // BLOQUE 3
             chain3 = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(60.0, 12.0), new Pose(59.3, 35.5), new Pose(55.4, 60.8), new Pose(42.0, 60.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(119), Math.toRadians(180))
-                    .addPath(new BezierLine(new Pose(42.0, 60.0), new Pose(16.0, 60.0)))
-                    .setConstantHeadingInterpolation(Math.toRadians(180))
-                    .addPath(new BezierCurve(new Pose(16.0, 60.0), new Pose(14.9, 63.9), new Pose(11.5, 63.5)))
-                    .setLinearHeadingInterpolation(Math.toRadians(180), Math.toRadians(160))
-                    .addPath(new BezierCurve(new Pose(11.5, 63.5), new Pose(33.2, 56.5), new Pose(43.6, 33.0), new Pose(60.0, 12.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(160), Math.toRadians(119))
+                    .addPath(new BezierCurve(e(new Pose(60.0, 12.0), esAzul), e(new Pose(59.3, 35.5), esAzul), e(new Pose(55.4, 60.8), esAzul), e(new Pose(42.0, 60.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(119), esAzul), eAng(Math.toRadians(180), esAzul))
+                    .addPath(new BezierLine(e(new Pose(42.0, 60.0), esAzul), e(new Pose(16.0, 60.0), esAzul)))
+                    .setConstantHeadingInterpolation(eAng(Math.toRadians(180), esAzul))
+                    .addPath(new BezierCurve(e(new Pose(16.0, 60.0), esAzul), e(new Pose(14.9, 63.9), esAzul), e(new Pose(11.5, 63.5), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(180), esAzul), eAng(Math.toRadians(160), esAzul))
+                    .addPath(new BezierCurve(e(new Pose(11.5, 63.5), esAzul), e(new Pose(33.2, 56.5), esAzul), e(new Pose(43.6, 33.0), esAzul), e(new Pose(60.0, 12.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(160), esAzul), eAng(Math.toRadians(119), esAzul))
                     .build();
 
-            // BLOQUE 4: Del 9 al 11 (Fluyen sin pausa)
+            // BLOQUE 4
             chain4 = follower.pathBuilder()
-                    .addPath(new BezierCurve(new Pose(60.0, 12.0), new Pose(45.1, 15.5), new Pose(29.5, 9.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(119), Math.toRadians(180))
-                    .addPath(new BezierLine(new Pose(29.5, 9.0), new Pose(8.0, 9.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(180), Math.toRadians(180))
-                    .addPath(new BezierCurve(new Pose(8.0, 9.0), new Pose(44.2, 16.3), new Pose(60.0, 12.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(180), Math.toRadians(119))
+                    .addPath(new BezierCurve(e(new Pose(60.0, 12.0), esAzul), e(new Pose(45.1, 15.5), esAzul), e(new Pose(29.5, 9.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(119), esAzul), eAng(Math.toRadians(180), esAzul))
+                    .addPath(new BezierLine(e(new Pose(29.5, 9.0), esAzul), e(new Pose(8.0, 9.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(180), esAzul), eAng(Math.toRadians(180), esAzul))
+                    .addPath(new BezierCurve(e(new Pose(8.0, 9.0), esAzul), e(new Pose(44.2, 16.3), esAzul), e(new Pose(60.0, 12.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(180), esAzul), eAng(Math.toRadians(119), esAzul))
                     .build();
 
-            // BLOQUE 5: Del 12 al 13
+            // BLOQUE 5
             chain5 = follower.pathBuilder()
-                    .addPath(new BezierLine(new Pose(60.0, 12.0), new Pose(30.0, 9.0)))
-                    .setLinearHeadingInterpolation(Math.toRadians(119), Math.toRadians(180))
-                    .addPath(new BezierLine(new Pose(30.0, 9.0), new Pose(8.0, 9.0)))
+                    .addPath(new BezierLine(e(new Pose(60.0, 12.0), esAzul), e(new Pose(30.0, 9.0), esAzul)))
+                    .setLinearHeadingInterpolation(eAng(Math.toRadians(119), esAzul), eAng(Math.toRadians(180), esAzul))
+                    .addPath(new BezierLine(e(new Pose(30.0, 9.0), esAzul), e(new Pose(8.0, 9.0), esAzul)))
                     .setTangentHeadingInterpolation()
                     .build();
         }
